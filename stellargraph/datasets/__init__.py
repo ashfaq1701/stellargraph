@@ -37,3 +37,4 @@ __all__ = [
 ]
 
 from .datasets import *
+from .additional_datasets import *

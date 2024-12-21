@@ -125,3 +125,5 @@ Session.vim
 *.pkl
 *.h5
 *.emb
+
+data/*
