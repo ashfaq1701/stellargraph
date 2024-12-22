@@ -1,3 +1,4 @@
+from io import StringIO
 import pandas as pd
 import numpy as np
 from ..core.graph import StellarGraph, StellarDiGraph
@@ -34,7 +35,8 @@ class IARadoslawEmail:
             header=None,
             names=["source", "target", "x", "time"],
             usecols=["source", "target", "time"],
-            engine='python'
+            engine='python',
+            skiprows=2
         )
 
         edges[["source", "target"]] = edges[["source", "target"]].astype(str)
@@ -69,3 +71,143 @@ class IAContactsHypertext2009:
         )
 
         return StellarGraph(nodes=nodes, edges=edges, edge_weight_column="time"), edges
+
+
+class FBForum:
+    def load(self):
+        edges_path = '../../data/fb-forum.edges'
+        edges = pd.read_csv(
+            edges_path,
+            sep=r',',
+            header=None,
+            names=["source", "target", "time"],
+            usecols=["source", "target", "time"],
+            engine='python'
+        )
+
+        edges[["source", "target"]] = edges[["source", "target"]].astype(str)
+
+        nodes = pd.DataFrame(
+            index=np.unique(
+                pd.concat([edges["source"], edges["target"]], ignore_index=True)
+            )
+        )
+
+        return StellarGraph(nodes=nodes, edges=edges, edge_weight_column="time"), edges
+
+
+class SocSignBitcoinAlpha:
+    def load(self):
+        edges_path = '../../data/out.soc-sign-bitcoinalpha'
+        edges = pd.read_csv(
+            edges_path,
+            sep=r'\s+',
+            header=None,
+            skiprows=1,
+            names=["source", "target", "x", "time"],
+            usecols=["source", "target", "time"],
+            engine='python'
+        )
+
+        edges[["source", "target"]] = edges[["source", "target"]].astype(str)
+
+        nodes = pd.DataFrame(
+            index=np.unique(
+                pd.concat([edges["source"], edges["target"]], ignore_index=True)
+            )
+        )
+
+        return StellarGraph(nodes=nodes, edges=edges, edge_weight_column="time"), edges
+
+
+class IAEmailEU:
+    def load(self):
+        edges_path = '../../data/email-Eu-core-temporal.txt'
+        edges = pd.read_csv(
+            edges_path,
+            sep=r'\s+',
+            header=None,
+            names=["source", "target", "time"],
+            usecols=["source", "target", "time"],
+            engine='python'
+        )
+
+        edges[["source", "target"]] = edges[["source", "target"]].astype(str)
+
+        nodes = pd.DataFrame(
+            index=np.unique(
+                pd.concat([edges["source"], edges["target"]], ignore_index=True)
+            )
+        )
+
+        return StellarGraph(nodes=nodes, edges=edges, edge_weight_column="time"), edges
+
+
+class WikiElections:
+    def load_from_string(self, data_string):
+        sources = []
+        targets = []
+        times = []
+        votes = []
+
+        for line in StringIO(data_string):
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+
+            parts = line.split()
+
+            if parts[0] == 'E':
+                continue
+            elif parts[0] == 'U':
+                candidate_id = parts[1]
+            elif parts[0] == 'T':
+                election_time = pd.to_datetime(f"{parts[1]} {parts[2]}")
+            elif parts[0] == 'N':
+                nominator_id = parts[1]
+                sources.append(nominator_id)
+                targets.append(candidate_id)
+                times.append(election_time)
+                votes.append(1)
+            elif parts[0] == 'V':
+                vote_value = int(parts[1])
+                voter_id = parts[2]
+                vote_time = f"{parts[3]} {parts[4]}"
+
+                sources.append(voter_id)
+                targets.append(candidate_id)
+                times.append(pd.to_datetime(vote_time))
+                votes.append(vote_value)
+
+        edges = pd.DataFrame({
+            'source': sources,
+            'target': targets,
+            'timestamp': times,
+            'vote': votes
+        })
+
+        edges['timestamp'] = pd.to_numeric(edges['timestamp'].fillna(
+            edges['timestamp'].min()
+        ).astype('int64')) // 10 ** 9
+
+        edges[['source', 'target']] = edges[['source', 'target']].astype(str)
+
+        nodes = pd.DataFrame(
+            index=np.unique(
+                pd.concat([edges['source'], edges['target']], ignore_index=True)
+            )
+        )
+
+        graph = StellarGraph(nodes=nodes, edges=edges, edge_weight_column='timestamp')
+
+        return graph, edges
+
+    def load(self, file_path='../../data/wikiElec.ElecBs3.txt'):
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = f.read()
+        except UnicodeDecodeError:
+            with open(file_path, 'r', encoding='latin-1') as f:
+                data = f.read()
+
+        return self.load_from_string(data)
