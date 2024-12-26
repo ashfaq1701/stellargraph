@@ -1142,6 +1142,13 @@ class TemporalRandomWalk(GraphWalk):
         # t_0 assumed to be smaller than all time values
         return softmax(t_0 - np.array(times) if decay else np.array(times) - t_0)
 
+    def _lin_biases(self, times, t_0, decay):
+        times_array = np.array(times)
+        time_diffs = abs(times_array - t_0)
+        ranks = np.argsort(-time_diffs if decay else time_diffs) + 1
+        probabilities = ranks / np.sum(ranks)
+        return probabilities
+
     def _temporal_biases(self, times, time, bias_type, is_forward):
         if bias_type is None:
             # default to uniform random sampling
@@ -1153,6 +1160,8 @@ class TemporalRandomWalk(GraphWalk):
         if bias_type == "exponential":
             # exponential decay bias needs to be reversed if looking backwards in time
             return self._exp_biases(times, t_0, decay=is_forward)
+        elif bias_type == "linear":
+            return self._lin_biases(times, t_0, decay=is_forward)
         else:
             raise ValueError("Unsupported bias type")
 

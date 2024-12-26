@@ -2,10 +2,23 @@ from io import StringIO
 import pandas as pd
 import numpy as np
 from ..core.graph import StellarGraph, StellarDiGraph
+import os
+
+
+def resolve_path(*possible_paths):
+    for path in possible_paths:
+        if os.path.exists(path):
+            return path
+    raise FileNotFoundError(f"None of the specified paths exist: {possible_paths}")
+
 
 class IAContact:
     def load(self):
-        edges_path = '../../data/ia-contact.edges'
+        edges_path = resolve_path(
+            '../../data/ia-contact.edges',
+            '../../../data/ia-contact.edges',
+            '../../../../data/ia-contact.edges'
+        )
         edges = pd.read_csv(
             edges_path,
             sep=r'\s+',
@@ -28,7 +41,11 @@ class IAContact:
 
 class IARadoslawEmail:
     def load(self):
-        edges_path = '../../data/ia-radoslaw-email.edges'
+        edges_path = resolve_path(
+            '../../data/ia-radoslaw-email.edges',
+            '../../../data/ia-radoslaw-email.edges',
+            '../../../../data/ia-radoslaw-email.edges'
+        )
         edges = pd.read_csv(
             edges_path,
             sep=r'\s+',
@@ -52,7 +69,11 @@ class IARadoslawEmail:
 
 class IAContactsHypertext2009:
     def load(self):
-        edges_path = '../../data/ia-contacts_hypertext2009.edges'
+        edges_path = resolve_path(
+            '../../data/ia-contacts_hypertext2009.edges',
+            '../../../data/ia-contacts_hypertext2009.edges',
+            '../../../../data/ia-contacts_hypertext2009.edges'
+        )
         edges = pd.read_csv(
             edges_path,
             sep=r',',
@@ -75,7 +96,11 @@ class IAContactsHypertext2009:
 
 class FBForum:
     def load(self):
-        edges_path = '../../data/fb-forum.edges'
+        edges_path = resolve_path(
+            '../../data/fb-forum.edges',
+            '../../../data/fb-forum.edges',
+            '../../../../data/fb-forum.edges'
+        )
         edges = pd.read_csv(
             edges_path,
             sep=r',',
@@ -98,7 +123,11 @@ class FBForum:
 
 class SocSignBitcoinAlpha:
     def load(self):
-        edges_path = '../../data/out.soc-sign-bitcoinalpha'
+        edges_path = resolve_path(
+            '../../data/out.soc-sign-bitcoinalpha',
+            '../../../data/out.soc-sign-bitcoinalpha',
+            '../../../../data/out.soc-sign-bitcoinalpha'
+        )
         edges = pd.read_csv(
             edges_path,
             sep=r'\s+',
@@ -122,7 +151,11 @@ class SocSignBitcoinAlpha:
 
 class IAEmailEU:
     def load(self):
-        edges_path = '../../data/email-Eu-core-temporal.txt'
+        edges_path = resolve_path(
+            '../../data/email-Eu-core-temporal.txt',
+            '../../../data/email-Eu-core-temporal.txt',
+            '../../../../data/email-Eu-core-temporal.txt',
+        )
         edges = pd.read_csv(
             edges_path,
             sep=r'\s+',
@@ -202,7 +235,12 @@ class WikiElections:
 
         return graph, edges
 
-    def load(self, file_path='../../data/wikiElec.ElecBs3.txt'):
+    def load(self):
+        file_path = resolve_path(
+            '../../data/wikiElec.ElecBs3.txt',
+            '../../../data/wikiElec.ElecBs3.txt',
+            '../../../../data/wikiElec.ElecBs3.txt'
+        )
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = f.read()
