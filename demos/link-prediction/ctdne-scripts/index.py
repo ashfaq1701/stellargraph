@@ -281,8 +281,8 @@ def select_context_window_size(dataset, walk_bias, initial_edge_bias):
         except Exception as _:
             break
 
-    highest_auc_old_idx = np.argmax(temporal_auc_values_old)
-    highest_auc_new_idx = np.argmax(temporal_auc_values_new)
+    highest_auc_old_idx = len(temporal_auc_values_old) - 1 - np.argmax(temporal_auc_values_old[::-1])
+    highest_auc_new_idx = len(temporal_auc_values_new) - 1 - np.argmax(temporal_auc_values_new[::-1])
 
     highest_auc_old_value = np.max(temporal_auc_values_old)
     highest_auc_new_value = np.max(temporal_auc_values_new)
@@ -290,12 +290,9 @@ def select_context_window_size(dataset, walk_bias, initial_edge_bias):
     mean_auc_old = np.mean(temporal_auc_values_old)
     mean_auc_new = np.mean(temporal_auc_values_new)
 
-    distance_from_mean_old = highest_auc_old_value - mean_auc_old
-    distance_from_mean_new = highest_auc_new_value - mean_auc_new
-
-    if distance_from_mean_new > distance_from_mean_old and distance_from_mean_new > 0:
+    if highest_auc_new_value > mean_auc_new:
         most_significant_idx = highest_auc_new_idx
-    elif distance_from_mean_old > distance_from_mean_new and distance_from_mean_old > 0:
+    elif highest_auc_old_value > mean_auc_old:
         most_significant_idx = highest_auc_old_idx
     else:
         most_significant_idx = highest_auc_new_idx
