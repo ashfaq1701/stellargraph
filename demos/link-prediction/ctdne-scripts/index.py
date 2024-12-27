@@ -24,6 +24,9 @@ EMBEDDING_SIZE = 128
 NUM_WALKS_PER_NODE = 10
 WALK_LENGTH = 80
 
+START_CONTEXT_WINDOW_SIZE = 2
+END_CONTEXT_WINDOW_SIZE = 12
+
 
 def get_dataset(dataset_name):
     if dataset_name == 'fb_forum':
@@ -74,12 +77,13 @@ def sample_negative_examples(g, positive_examples):
 def compute_link_prediction_auc(dataset_name, walk_bias, initial_edge_bias, context_window_size):
     dataset = get_dataset(dataset_name)
     full_graph, edges = dataset.load()
-    edges_list = [(int(row[0]), int(row[1]), row[2]) for row in edges.to_numpy()]
 
     num_edges_graph = int(len(edges) * (1 - TRAIN_SUBSET))
 
     edges_graph = edges[:num_edges_graph]
     edges_other = edges[num_edges_graph:]
+
+    edges_list_graph = [(int(row[0]), int(row[1]), row[2]) for row in edges_graph.to_numpy()]
 
     edges_train, edges_test = train_test_split(edges_other, test_size=TEST_SUBSET)
 
@@ -104,9 +108,18 @@ def compute_link_prediction_auc(dataset_name, walk_bias, initial_edge_bias, cont
     )
     temporal_walk_old_time = time.time() - temporal_walk_old_start_time
 
+    temporal_walk_lens_old = [len(walk) for walk in temporal_walks_old]
+    walk_len_attrs_old = (
+        np.min(temporal_walk_lens_old),
+        np.max(temporal_walk_lens_old),
+        np.mean(temporal_walk_lens_old),
+        np.median(temporal_walk_lens_old),
+        np.std(temporal_walk_lens_old)
+    )
+
     temporal_walk_new_start_time = time.time()
     temporal_walk = TemporalWalk()
-    temporal_walk.add_multiple_edges(edges_list)
+    temporal_walk.add_multiple_edges(edges_list_graph)
     temporal_walks = temporal_walk.get_random_walks(
         max_walk_len=WALK_LENGTH,
         walk_bias=walk_bias,
@@ -118,6 +131,15 @@ def compute_link_prediction_auc(dataset_name, walk_bias, initial_edge_bias, cont
     )
     temporal_walks_new = [[str(node) for node in walk] for walk in temporal_walks]
     temporal_walk_new_time = time.time() - temporal_walk_new_start_time
+
+    temporal_walk_lens_new = [len(walk) for walk in temporal_walks_new]
+    walk_len_attrs_new = (
+        np.min(temporal_walk_lens_new),
+        np.max(temporal_walk_lens_new),
+        np.mean(temporal_walk_lens_new),
+        np.median(temporal_walk_lens_new),
+        np.std(temporal_walk_lens_new)
+    )
 
     static_rw = BiasedRandomWalk(graph)
     static_walks = static_rw.run(
@@ -236,8 +258,50 @@ def compute_link_prediction_auc(dataset_name, walk_bias, initial_edge_bias, cont
         'auc_temporal_old': temporal_score_old,
         'auc_temporal_new': temporal_score_new,
         'temporal_walk_old_time': temporal_walk_old_time,
-        'temporal_walk_new_time': temporal_walk_new_time
+        'temporal_walk_new_time': temporal_walk_new_time,
+        'walk_len_attrs_old': walk_len_attrs_old,
+        'walk_len_attrs_new': walk_len_attrs_new
     }
+
+
+def select_context_window_size(dataset, walk_bias, initial_edge_bias):
+    temporal_auc_values_old = []
+    temporal_auc_values_new = []
+
+    for c_size in range(START_CONTEXT_WINDOW_SIZE, END_CONTEXT_WINDOW_SIZE + 1):
+        try:
+            result = compute_link_prediction_auc(
+                dataset,
+                walk_bias,
+                initial_edge_bias,
+                c_size
+            )
+            temporal_auc_values_old.append(result["auc_temporal_old"])
+            temporal_auc_values_new.append(result["auc_temporal_new"])
+        except Exception as _:
+            break
+
+    highest_auc_old_idx = np.argmax(temporal_auc_values_old)
+    highest_auc_new_idx = np.argmax(temporal_auc_values_new)
+
+    highest_auc_old_value = np.max(temporal_auc_values_old)
+    highest_auc_new_value = np.max(temporal_auc_values_new)
+
+    mean_auc_old = np.mean(temporal_auc_values_old)
+    mean_auc_new = np.mean(temporal_auc_values_new)
+
+    distance_from_mean_old = highest_auc_old_value - mean_auc_old
+    distance_from_mean_new = highest_auc_new_value - mean_auc_new
+
+    if distance_from_mean_new > distance_from_mean_old and distance_from_mean_new > 0:
+        most_significant_idx = highest_auc_new_idx
+    elif distance_from_mean_old > distance_from_mean_new and distance_from_mean_old > 0:
+        most_significant_idx = highest_auc_old_idx
+    else:
+        most_significant_idx = highest_auc_new_idx
+
+    selected_context_window_size = START_CONTEXT_WINDOW_SIZE + most_significant_idx
+    return selected_context_window_size
 
 
 if __name__ == '__main__':
@@ -247,10 +311,10 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, required=True)
     parser.add_argument('--walk_bias', type=str, default="Exponential")
     parser.add_argument('--initial_edge_bias', type=str, default="Uniform")
-    parser.add_argument('--context_window_size', type=int, default=10)
     parser.add_argument('--n_runs', type=int, default=5)
 
     args = parser.parse_args()
+    context_window_size = select_context_window_size(args.dataset, args.walk_bias, args.initial_edge_bias)
 
     auc_statics = []
     auc_temporal_olds = []
@@ -258,8 +322,25 @@ if __name__ == '__main__':
     temporal_walk_old_times = []
     temporal_walk_new_times = []
 
+    min_walk_lens_old = []
+    max_walk_lens_old = []
+    mean_walk_lens_old = []
+    median_walk_lens_old = []
+    std_walk_lens_old = []
+
+    min_walk_lens_new = []
+    max_walk_lens_new = []
+    mean_walk_lens_new = []
+    median_walk_lens_new = []
+    std_walk_lens_new = []
+
     for _ in range(args.n_runs):
-        result = compute_link_prediction_auc(args.dataset, args.walk_bias, args.initial_edge_bias, args.context_window_size)
+        result = compute_link_prediction_auc(
+            args.dataset,
+            args.walk_bias,
+            args.initial_edge_bias,
+            context_window_size
+        )
 
         auc_statics.append(result["auc_static"])
         auc_temporal_olds.append(result["auc_temporal_old"])
@@ -267,18 +348,46 @@ if __name__ == '__main__':
         temporal_walk_old_times.append(result["temporal_walk_old_time"])
         temporal_walk_new_times.append(result["temporal_walk_new_time"])
 
+        min_walk_len_old, max_walk_len_old, mean_walk_len_old, median_walk_len_old, std_walk_len_old = result["walk_len_attrs_old"]
+        min_walk_len_new, max_walk_len_new, mean_walk_len_new, median_walk_len_new, std_walk_len_new = result["walk_len_attrs_new"]
+
+        min_walk_lens_old.append(min_walk_len_old)
+        max_walk_lens_old.append(max_walk_len_old)
+        mean_walk_lens_old.append(mean_walk_len_old)
+        median_walk_lens_old.append(median_walk_len_old)
+        std_walk_lens_old.append(std_walk_len_old)
+
+        min_walk_lens_new.append(min_walk_len_new)
+        max_walk_lens_new.append(max_walk_len_new)
+        mean_walk_lens_new.append(mean_walk_len_new)
+        median_walk_lens_new.append(median_walk_len_new)
+        std_walk_lens_new.append(std_walk_len_new)
+
     combined_result = {
         'auc_static': auc_statics,
         'auc_temporal_old': auc_temporal_olds,
         'auc_temporal_new': auc_temporal_news,
         'temporal_walk_old_time': temporal_walk_old_times,
-        'temporal_walk_new_time': temporal_walk_new_times
+        'temporal_walk_new_time': temporal_walk_new_times,
+        'min_walk_len_old': min_walk_lens_old,
+        'max_walk_len_old': max_walk_lens_old,
+        'mean_walk_len_old': mean_walk_lens_old,
+        'median_walk_len_old': median_walk_lens_old,
+        'std_walk_len_old': std_walk_lens_old,
+        'min_walk_len_new': min_walk_lens_new,
+        'max_walk_len_new': max_walk_lens_new,
+        'mean_walk_len_new': mean_walk_lens_new,
+        'median_walk_len_new': median_walk_lens_new,
+        'std_walk_len_new': std_walk_lens_new
     }
 
-    pickle.dump(combined_result, open(f"save/{args.dataset}_{args.walk_bias}_{args.initial_edge_bias}.pkl", "wb"))
+    pickle.dump(combined_result, open(f"save/{args.dataset}_{args.walk_bias}_{args.initial_edge_bias}_{context_window_size}.pkl", "wb"))
 
     print(f"Auc Static: {np.mean(auc_statics)}")
     print(f"Auc Temporal (Old): {np.mean(auc_temporal_olds)}")
     print(f"Auc Temporal (New): {np.mean(auc_temporal_news)}")
     print(f"Temporal walk sampling time (Old): {np.mean(temporal_walk_old_times)}")
     print(f"Temporal walk sampling time (New): {np.mean(temporal_walk_new_times)}")
+
+    print(f"Old walk len: min {np.mean(min_walk_lens_old)}, max {np.mean(max_walk_lens_old)}, mean {np.mean(mean_walk_lens_old)}, median {np.mean(median_walk_lens_old)}, std {np.mean(std_walk_lens_old)}")
+    print(f"New walk len: min {np.mean(min_walk_lens_new)}, max {np.mean(max_walk_lens_new)}, mean {np.mean(mean_walk_lens_new)}, median {np.mean(median_walk_lens_new)}, std {np.mean(std_walk_lens_new)}")
