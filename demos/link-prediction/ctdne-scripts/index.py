@@ -311,7 +311,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, required=True)
     parser.add_argument('--walk_bias', type=str, default="Exponential")
     parser.add_argument('--initial_edge_bias', type=str, default="Uniform")
-    parser.add_argument('--n_runs', type=int, default=5)
+    parser.add_argument('--n_runs', type=int, default=7)
 
     args = parser.parse_args()
     context_window_size = select_context_window_size(args.dataset, args.walk_bias, args.initial_edge_bias)
