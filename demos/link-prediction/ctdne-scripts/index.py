@@ -23,7 +23,6 @@ EMBEDDING_SIZE = 128
 
 NUM_WALKS_PER_NODE = 10
 WALK_LENGTH = 80
-CONTEXT_WINDOW_SIZE = 10
 
 
 def get_dataset(dataset_name):
@@ -72,7 +71,7 @@ def sample_negative_examples(g, positive_examples):
     return random.sample(possible_neg_edges, k=len(positive_examples))
 
 
-def compute_link_prediction_auc(dataset_name, walk_bias, initial_edge_bias):
+def compute_link_prediction_auc(dataset_name, walk_bias, initial_edge_bias, context_window_size):
     dataset = get_dataset(dataset_name)
     full_graph, edges = dataset.load()
     edges_list = [(int(row[0]), int(row[1]), row[2]) for row in edges.to_numpy()]
@@ -93,13 +92,13 @@ def compute_link_prediction_auc(dataset_name, walk_bias, initial_edge_bias):
     pos, neg = positive_and_negative_links(graph, edges_train)
     pos_test, neg_test = positive_and_negative_links(graph, edges_test)
 
-    num_cw = len(graph.nodes()) * NUM_WALKS_PER_NODE * (WALK_LENGTH - CONTEXT_WINDOW_SIZE + 1)
+    num_cw = len(graph.nodes()) * NUM_WALKS_PER_NODE * (WALK_LENGTH - context_window_size + 1)
 
     temporal_walk_old_start_time = time.time()
     temporal_rw = TemporalRandomWalk(graph)
     temporal_walks_old = temporal_rw.run(
         num_cw=num_cw,
-        cw_size=CONTEXT_WINDOW_SIZE,
+        cw_size=context_window_size,
         max_walk_length=WALK_LENGTH,
         walk_bias=walk_bias.lower(),
     )
@@ -115,7 +114,7 @@ def compute_link_prediction_auc(dataset_name, walk_bias, initial_edge_bias):
         initial_edge_bias=initial_edge_bias,
         walk_direction="Forward_In_Time",
         walk_init_edge_time_bias="Bias_Earliest_Time",
-        context_window_len=CONTEXT_WINDOW_SIZE
+        context_window_len=context_window_size
     )
     temporal_walks_new = [[str(node) for node in walk] for walk in temporal_walks]
     temporal_walk_new_time = time.time() - temporal_walk_new_start_time
@@ -128,7 +127,7 @@ def compute_link_prediction_auc(dataset_name, walk_bias, initial_edge_bias):
     temporal_model_old = Word2Vec(
         temporal_walks_old,
         vector_size=EMBEDDING_SIZE,
-        window=CONTEXT_WINDOW_SIZE,
+        window=context_window_size,
         min_count=0,
         sg=1,
         workers=2,
@@ -137,7 +136,7 @@ def compute_link_prediction_auc(dataset_name, walk_bias, initial_edge_bias):
     temporal_model_new = Word2Vec(
         temporal_walks_new,
         vector_size=EMBEDDING_SIZE,
-        window=CONTEXT_WINDOW_SIZE,
+        window=context_window_size,
         min_count=0,
         sg=1,
         workers=2,
@@ -147,7 +146,7 @@ def compute_link_prediction_auc(dataset_name, walk_bias, initial_edge_bias):
     static_model = Word2Vec(
         static_walks,
         vector_size=EMBEDDING_SIZE,
-        window=CONTEXT_WINDOW_SIZE,
+        window=context_window_size,
         min_count=0,
         sg=1,
         workers=2,
@@ -248,6 +247,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, required=True)
     parser.add_argument('--walk_bias', type=str, default="Exponential")
     parser.add_argument('--initial_edge_bias', type=str, default="Uniform")
+    parser.add_argument('--context_window_size', type=int, default=10)
     parser.add_argument('--n_runs', type=int, default=5)
 
     args = parser.parse_args()
@@ -259,7 +259,7 @@ if __name__ == '__main__':
     temporal_walk_new_times = []
 
     for _ in range(args.n_runs):
-        result = compute_link_prediction_auc(args.dataset, args.walk_bias, args.initial_edge_bias)
+        result = compute_link_prediction_auc(args.dataset, args.walk_bias, args.initial_edge_bias, args.context_window_size)
 
         auc_statics.append(result["auc_static"])
         auc_temporal_olds.append(result["auc_temporal_old"])
