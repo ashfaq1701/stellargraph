@@ -118,7 +118,7 @@ def compute_link_prediction_auc(dataset_name, walk_bias, initial_edge_bias, cont
     )
 
     temporal_walk_new_start_time = time.time()
-    temporal_walk = TemporalWalk()
+    temporal_walk = TemporalWalk(is_directed=False)
     temporal_walk.add_multiple_edges(edges_list_graph)
     temporal_walks = temporal_walk.get_random_walks(
         max_walk_len=WALK_LENGTH,
