@@ -282,8 +282,8 @@ def select_context_window_size(dataset, walk_bias, initial_edge_bias):
                     initial_edge_bias,
                     c_size
                 )
-                temporal_auc_old_trials.append(result["auc_temporal_old"])
-                temporal_auc_new_trials.append(result["auc_temporal_new"])
+                temporal_auc_old_trials.append(round(result["auc_temporal_old"]))
+                temporal_auc_new_trials.append(round(result["auc_temporal_new"]))
             except Exception as e:
                 success = False
                 break
@@ -291,8 +291,8 @@ def select_context_window_size(dataset, walk_bias, initial_edge_bias):
         if not success:
             break
 
-        temporal_auc_values_old.append(np.mean(temporal_auc_old_trials))
-        temporal_auc_values_new.append(np.mean(temporal_auc_new_trials))
+        temporal_auc_values_old.append(round(np.mean(temporal_auc_old_trials)))
+        temporal_auc_values_new.append(round(np.mean(temporal_auc_new_trials)))
 
     highest_auc_old_idx = len(temporal_auc_values_old) - 1 - np.argmax(temporal_auc_values_old[::-1])
     highest_auc_new_idx = len(temporal_auc_values_new) - 1 - np.argmax(temporal_auc_values_new[::-1])
