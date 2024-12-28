@@ -282,8 +282,8 @@ def select_context_window_size(dataset, walk_bias, initial_edge_bias):
                     initial_edge_bias,
                     c_size
                 )
-                temporal_auc_old_trials.append(round(result["auc_temporal_old"]))
-                temporal_auc_new_trials.append(round(result["auc_temporal_new"]))
+                temporal_auc_old_trials.append(round(result["auc_temporal_old"] * 100))
+                temporal_auc_new_trials.append(round(result["auc_temporal_new"] * 100))
             except Exception as e:
                 success = False
                 break
