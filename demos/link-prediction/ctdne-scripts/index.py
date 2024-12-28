@@ -322,9 +322,16 @@ if __name__ == '__main__':
     parser.add_argument('--walk_bias', type=str, default="Exponential")
     parser.add_argument('--initial_edge_bias', type=str, default="Uniform")
     parser.add_argument('--n_runs', type=int, default=7)
+    parser.add_argument('--context_window_size', type=int, default=-1)
 
     args = parser.parse_args()
-    context_window_size = select_context_window_size(args.dataset, args.walk_bias, args.initial_edge_bias)
+
+    if args.context_window_size == -1:
+        context_window_size = select_context_window_size(args.dataset, args.walk_bias, args.initial_edge_bias)
+        print(f'------------------------\nDerived context window size: {context_window_size}\n------------------------')
+    else:
+        context_window_size = args.context_window_size
+        print(f'------------------------\nPassed context window size: {context_window_size}\n------------------------')
 
     auc_statics = []
     auc_temporal_olds = []
