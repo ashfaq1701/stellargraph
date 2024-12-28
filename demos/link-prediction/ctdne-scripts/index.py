@@ -269,17 +269,30 @@ def select_context_window_size(dataset, walk_bias, initial_edge_bias):
     temporal_auc_values_new = []
 
     for c_size in range(START_CONTEXT_WINDOW_SIZE, END_CONTEXT_WINDOW_SIZE + 1):
-        try:
-            result = compute_link_prediction_auc(
-                dataset,
-                walk_bias,
-                initial_edge_bias,
-                c_size
-            )
-            temporal_auc_values_old.append(result["auc_temporal_old"])
-            temporal_auc_values_new.append(result["auc_temporal_new"])
-        except Exception as _:
+        temporal_auc_old_trials = []
+        temporal_auc_new_trials = []
+
+        success = True
+
+        for _trial in range(3):
+            try:
+                result = compute_link_prediction_auc(
+                    dataset,
+                    walk_bias,
+                    initial_edge_bias,
+                    c_size
+                )
+                temporal_auc_old_trials.append(result["auc_temporal_old"])
+                temporal_auc_new_trials.append(result["auc_temporal_new"])
+            except Exception as e:
+                success = False
+                break
+
+        if not success:
             break
+
+        temporal_auc_values_old.append(np.mean(temporal_auc_old_trials))
+        temporal_auc_values_new.append(np.mean(temporal_auc_new_trials))
 
     highest_auc_old_idx = len(temporal_auc_values_old) - 1 - np.argmax(temporal_auc_values_old[::-1])
     highest_auc_new_idx = len(temporal_auc_values_new) - 1 - np.argmax(temporal_auc_values_new[::-1])
